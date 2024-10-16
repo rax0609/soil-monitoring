@@ -1,0 +1,135 @@
+<!DOCTYPE HTML>
+<html lang='zh-TW'>
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <title>智能植物照顧系統</title>
+    <style>
+        body { font-family: 'Arial', sans-serif; background-color: #1a1a2e; color: #e0e0e0; margin: 0; padding: 0; }
+        h1 { color: #4ecca3; text-align: center; padding: 20px 0; text-transform: uppercase; letter-spacing: 2px; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; background-color: #16213e; border-radius: 15px; box-shadow: 0 0 20px rgba(78, 204, 163, 0.2); }
+        .display { font-size: 18px; margin: 15px 0; background-color: #0f3460; padding: 15px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .moisture-bar { background-color: #1a1a2e; border-radius: 10px; height: 30px; margin-top: 10px; overflow: hidden; }
+        .moisture-level { background-color: #4ecca3; height: 100%; transition: width 0.5s ease-in-out; }
+        .advice { font-size: 20px; font-weight: bold; color: #4ecca3; margin-top: 20px; text-align: center; padding: 20px; background-color: #0f3460; border-radius: 10px; box-shadow: 0 0 10px rgba(78, 204, 163, 0.3); }
+        .refresh-btn { display: block; width: 200px; margin: 20px auto; padding: 10px; background-color: #4ecca3; color: #1a1a2e; text-align: center; text-decoration: none; border-radius: 5px; transition: background-color 0.3s; }
+        .refresh-btn:hover { background-color: #45b393; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(78, 204, 163, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(78, 204, 163, 0); } 100% { box-shadow: 0 0 0 0 rgba(78, 204, 163, 0); } }
+        .pulse { animation: pulse 2s infinite; }
+        .loading-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #1a1a2e; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
+        .loading-bar { width: 200px; height: 6px; background-color: #0f3460; border-radius: 3px; overflow: hidden; margin-top: 20px; }
+        .loading-progress { width: 0; height: 100%; background-color: #4ecca3; transition: width 0.5s; }
+        .loading-text { color: #4ecca3; font-size: 18px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class='loading-screen' id='loadingScreen'>
+        <h2 style='color: #4ecca3;'>智能植物照顧系統</h2>
+        <div class='loading-bar'><div class='loading-progress' id='loadingProgress'></div></div>
+        <div class='loading-text' id='loadingText'>初始化...</div>
+    </div>
+
+    <div class='container' style='display:none;' id='mainContent'>
+        <h1>智能植物照顧系統</h1>
+        
+        <div class='display'>
+            <span>土壤濕度:</span> <strong id="moisture"></strong>
+        </div>
+        <div class='moisture-bar'>
+            <div class='moisture-level' id="moistureBar"></div>
+        </div>
+        
+        <div class='display'>
+            <span>當前時間:</span> <strong id="timeOfDay"></strong>
+        </div>
+        
+        <div class='advice pulse' id="advice"></div>
+        
+        <div class='display'>
+            <span>土壤濕度原始讀數:</span> <strong id="moistureRaw"></strong>
+        </div>
+        <div class='display'>
+            <span>光線感測器原始讀數:</span> <strong id="light"></strong>
+        </div>
+        
+        <a href='javascript:void(0);' class='refresh-btn' onclick="fetchData()">重新整理數據</a>
+    </div>
+
+    <script>
+        let startTime;
+        let fetchStartTime;
+        let fetchEndTime;
+        let renderStartTime;
+        let renderEndTime;
+
+        function simulateLoading() {
+            startTime = performance.now();
+            const progress = document.getElementById('loadingProgress');
+            const text = document.getElementById('loadingText');
+            const loadingScreen = document.getElementById('loadingScreen');
+            const mainContent = document.getElementById('mainContent');
+            let width = 0;
+
+            function updateProgress(stage, duration) {
+                text.textContent = stage;
+                const increment = 100 / (duration / 50);
+                const intervalId = setInterval(() => {
+                    width += increment;
+                    if (width >= 100) {
+                        clearInterval(intervalId);
+                        width = 0;
+                        if (stage === 'UI繪製中...') {
+                            text.textContent = '載入完成!';
+                            setTimeout(() => {
+                                loadingScreen.style.display = 'none';
+                                mainContent.style.display = 'block';
+                                logTimings();
+                            }, 500);
+                        }
+                    }
+                    progress.style.width = `${width}%`;
+                }, 50);
+            }
+
+            updateProgress('連接到系統...', 500);
+            setTimeout(() => {
+                fetchStartTime = performance.now();
+                fetchData().then(() => {
+                    fetchEndTime = performance.now();
+                    updateProgress('分析數據...', fetchEndTime - fetchStartTime);
+                    setTimeout(() => {
+                        renderStartTime = performance.now();
+                        updateProgress('UI繪製中...', 700);
+                    }, fetchEndTime - fetchStartTime);
+                });
+            }, 500);
+        }
+
+        function fetchData() {
+            return fetch('http://192.168.31.69')  // 替換為您的 Arduino IP 地址
+                .then(response => response.json())
+                .then(data => {
+                    renderStartTime = performance.now();
+                    document.getElementById('moisture').textContent = data.moisture + '%';
+                    document.getElementById('moistureBar').style.width = data.moisture + '%';
+                    document.getElementById('timeOfDay').textContent = data.timeOfDay;
+                    document.getElementById('advice').textContent = data.advice;
+                    document.getElementById('moistureRaw').textContent = data.moistureRaw;
+                    document.getElementById('light').textContent = data.light;
+                    renderEndTime = performance.now();
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function logTimings() {
+            console.log('連接到系統: 500ms');
+            console.log(`讀取感測器數據: ${fetchEndTime - fetchStartTime}ms`);
+            console.log(`分析數據: ${renderStartTime - fetchEndTime}ms`);
+            console.log(`UI繪製: ${renderEndTime - renderStartTime}ms`);
+            console.log(`總時間: ${renderEndTime - startTime}ms`);
+        }
+
+        window.onload = simulateLoading;
+    </script>
+</body>
+</html>

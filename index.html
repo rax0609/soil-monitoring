@@ -192,11 +192,12 @@
             updateProgress('連接到系統...', 500)
                 .then(() => {
                     fetchStartTime = performance.now();
+                    text.textContent = '讀取感測器數據...';
                     return fetchData();
                 })
-                .then(() => {
+                .then((data) => {
                     fetchEndTime = performance.now();
-                    return updateProgress('分析數據...', fetchEndTime - fetchStartTime);
+                    return updateProgress('分析數據...', Math.max(500, fetchEndTime - fetchStartTime));
                 })
                 .then(() => {
                     renderStartTime = performance.now();
@@ -214,13 +215,13 @@
                 .catch((error) => {
                     console.error('Error:', error);
                     text.textContent = '載入失敗';
-                    errorMessage.textContent = '無法連接到系統，請檢查網絡連接並重試。';
+                    errorMessage.textContent = '無法連接到系統或處理數據，請檢查連接並重試。';
                     errorMessage.style.display = 'block';
                 });
         }
 
         function fetchData() {
-            return fetch('http://raxr.zapto.org:9001/')  // 替換為您的 Arduino IP 地址
+            return fetch('https://raxr.zapto.org:9001')  // 替換為您的 Arduino IP 地址
                 .then(response => {
                     if (!response.ok) {
                         throw new Error('Network response was not ok');
@@ -228,12 +229,14 @@
                     return response.json();
                 })
                 .then(data => {
+                    // 在這裡處理並顯示數據
                     document.getElementById('moisture').textContent = data.moisture + '%';
                     document.getElementById('moistureBar').style.width = data.moisture + '%';
                     document.getElementById('timeOfDay').textContent = data.timeOfDay;
                     document.getElementById('advice').textContent = data.advice;
                     document.getElementById('moistureRaw').textContent = data.moistureRaw;
                     document.getElementById('light').textContent = data.light;
+                    return data; // 返回數據以便後續處理
                 });
         }
 
